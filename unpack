@@ -1,0 +1,77 @@
+#!/bin/bash
+
+#  This executable takes any number of .pak files as arguments and unpacks them
+#  to their respective .../Starbound/mods/<container> directory. It attempts to
+#  rename the container to the "friendlyName" found in the /_metadata JSON file.
+#  USAGE: unpack -rR .../**/*pak
+#    -R   overwrite directories without asking
+#    -r   ask before overwriting any directory
+#         default, never overwrite directories
+#    -   unpack container/mod.pak    |    unpack one .pak or .modpak file
+#    -   unpack container/*pak       |    glob all .pak files in a folder
+#    -   unpack container/**/*pak    |    recursively glob all .pak files
+
+starbound="$HOME/Library/Application Support/Steam/steamapps/common/Starbound"
+ask=false; skip=false
+
+while getopts 'rR' opt; do
+    case "$opt" in
+        r)
+            ask=true;;
+        R)
+            skip=true;;
+        ?);;
+    esac
+done
+
+if [[ "$@" != *"pak"* ]]; then
+    echo "USAGE:"
+    echo " - unpack container/mod.pak   |  unpack one .pak or .modpak file"
+    echo " - unpack container/*pak      |  unpack all .pak files in folder"
+    echo " - unpack container/**/*pak   |  unpack every .pak file in the path"
+    exit
+fi
+
+for pak in "$@"; do
+    if [[ "$pak" != *"pak" ]]; then continue; fi
+
+    default_container="$(basename "$(dirname "$pak")")"
+
+    if [[ $ask = false && $skip = false ]]; then
+        while [ -d "$starbound/mods/$default_container" ]; do default_container+="_"; done
+    fi
+
+    "$starbound"/osx/asset_unpacker "$pak" "$starbound/mods/$default_container"
+
+
+
+    modname="$(grep -F "friendlyName" "$starbound/mods/$default_container"/_metadata)"
+    if [ -z "$modname" ]; then continue; fi
+
+    modname="${modname%\"*}"         # short-strip tailing quote
+    modname="${modname##*\"}"        # long-strip the lead quote
+
+
+    new_container="$modname"; i=0
+
+    while [ -d "$starbound/mods/$new_container" ]; do
+
+        if [ $skip = true ]; then
+            rm -rf "$starbound/mods/$new_container"
+            break
+        elif [ $ask = true ]; then
+            echo "$default_container -> $new_container"
+            printf "Overwrite directory? (y/n) "; read line
+            if [[ $line = [yY]* ]]; then
+                rm -rf "$starbound/mods/$new_container"
+                break
+            fi
+        fi
+        let i+=1
+        new_container="$modname ($i)"
+    done
+
+    echo "$default_container -> $new_container"
+
+    mv "$starbound/mods/$default_container" "$starbound/mods/$new_container"
+done
