@@ -54,13 +54,14 @@ for pak in "$@"; do
 
     new_container="$modname"; i=0
 
+    echo "$default_container -> $new_container"
+
     while [ -d "$starbound/mods/$new_container" ]; do
 
         if [ $skip = true ]; then
             rm -rf "$starbound/mods/$new_container"
             break
         elif [ $ask = true ]; then
-            echo "$default_container -> $new_container"
             printf "Overwrite directory? (y/n) "; read line
             if [[ $line = [yY]* ]]; then
                 rm -rf "$starbound/mods/$new_container"
@@ -69,9 +70,9 @@ for pak in "$@"; do
         fi
         let i+=1
         new_container="$modname ($i)"
+        echo "$default_container -> $new_container"
     done
 
-    echo "$default_container -> $new_container"
 
     mv "$starbound/mods/$default_container" "$starbound/mods/$new_container"
 done
