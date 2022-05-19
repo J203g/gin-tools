@@ -12,67 +12,67 @@
 #    -   unpack container/**/*pak    |    recursively glob all .pak files
 
 starbound="$HOME/Library/Application Support/Steam/steamapps/common/Starbound"
-ask=false; skip=false
+flags=()
 
-while getopts 'rR' opt; do
+while getopts 'rRh' opt; do
     case "$opt" in
-        r)
-            ask=true;;
-        R)
-            skip=true;;
+        r) flags+=("interactive");;
+        R) flags+=("overwrite");;
+        h) echo "USAGE:"
+           echo " - unpack container/mod.pak  |  unpack one .pak or .modpak file"
+           echo " - unpack container/*pak     |  unpack all .pak files in folder"
+           echo " - unpack container/**/*pak  |  unpacks every .pak file in path"
+           echo " - unpack container          |  means 4.0 **/*pak or 3.0 */pak";;
         ?);;
     esac
 done
 
-if [[ "$@" != *"pak"* ]]; then
-    echo "USAGE:"
-    echo " - unpack container/mod.pak   |  unpack one .pak or .modpak file"
-    echo " - unpack container/*pak      |  unpack all .pak files in folder"
-    echo " - unpack container/**/*pak   |  unpack every .pak file in the path"
-    exit
-fi
+unpak () {
+    for pak in "$@"; do
+        if [[ "$pak" = *"*"* ]]; then return 1; fi # ../**/*pak fail, try ../*pak
 
-for pak in "$@"; do
-    if [[ "$pak" != *"pak" ]]; then continue; fi
+        default_container="$(basename "$(dirname "$pak")")-$(basename "$pak")"
+        default_container="${default_container%.*pak}"
 
-    default_container="$(basename "$(dirname "$pak")")"
-
-    if [[ $ask = false && $skip = false ]]; then
-        while [ -d "$starbound/mods/$default_container" ]; do default_container+="_"; done
-    fi
-
-    "$starbound"/osx/asset_unpacker "$pak" "$starbound/mods/$default_container"
+        "$starbound"/osx/asset_unpacker "$pak" "$starbound/mods/$default_container"
 
 
+        modname="$(grep -F friendlyName "$starbound/mods/$default_container"/_metadata)"
+        if [ -z "$modname" ]; then continue; fi
 
-    modname="$(grep -F "friendlyName" "$starbound/mods/$default_container"/_metadata)"
-    if [ -z "$modname" ]; then continue; fi
-
-    modname="${modname%\"*}"         # short-strip tailing quote
-    modname="${modname##*\"}"        # long-strip the lead quote
+        modname="${modname%\"*}"         # short-strip tailing quote
+        modname="${modname##*\"}"        #  long-strip leading quote
 
 
-    new_container="$modname"; i=0
+        new_container="$modname"; i=0
 
-    echo "$default_container -> $new_container"
-
-    while [ -d "$starbound/mods/$new_container" ]; do
-
-        if [ $skip = true ]; then
-            rm -rf "$starbound/mods/$new_container"
-            break
-        elif [ $ask = true ]; then
-            printf "Overwrite directory? (y/n) "; read line
-            if [[ $line = [yY]* ]]; then
-                rm -rf "$starbound/mods/$new_container"
-                break
-            fi
-        fi
-        let i+=1
-        new_container="$modname ($i)"
         echo "$default_container -> $new_container"
+
+        while [ -d "$starbound/mods/$new_container" ]; do
+
+            if [[ "${flags[@]}" =~ "interactive" ]]; then
+                read -n1 -p "Overwrite directory? (y/n) " line
+                if [[ $line = [yY] ]]; then echo;
+                    rm -rf "$starbound/mods/$new_container"; break
+                fi; echo
+
+            elif [[ "${flags[@]}" =~ "overwrite" ]]; then
+                rm -rf "$starbound/mods/$new_container"; break
+            fi
+
+            let i+=1
+            new_container="$modname ($i)"
+            echo "$default_container -> $new_container"
+        done
+
+        mv "$starbound/mods/$default_container" "$starbound/mods/$new_container"
     done
+}
 
-
-    mv "$starbound/mods/$default_container" "$starbound/mods/$new_container"
+for arg in "$@"; do
+    if [ -d "$arg" ]; then
+        unpak "$arg"/**/*.*pak || unpak "$arg"/*.*pak
+    elif [[ "$arg" = *.*pak ]]; then
+        unpak "$arg"
+    fi
 done
