@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# This executable packs a folder into a Starbound-friendly .pak file
+
+starbound="$HOME/Library/Application Support/Steam/steamapps/common/Starbound"
+
+if [ -z $2 ]; then
+    mod=$(grep -F friendlyName "$1"/_metadata)
+    if [ -z $mod ]; then exit; fi
+    mod="${mod%\"*}"         # short-strip tailing quote
+    mod="${mod##*\"}"        #  long-strip leading quote
+
+    "$starbound"/osx/asset_packer "$1" "$(dirname "$1")/$mod.pak"
+else
+    "$starbound"/osx/asset_packer "$1" "$(dirname "$1")/$2.pak"
+fi
