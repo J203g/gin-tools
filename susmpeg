@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# supported formats
+# - jpg
+# - mp3
+
+# unsupported formats
+# - heic
+
+# Usage: Make a video from a still image and audio.
+#   susmpeg input1.jpg input2.mp3 output.mp4
+
+ffmpeg -loop 1 -i "$1" -i "$2" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "$3"
